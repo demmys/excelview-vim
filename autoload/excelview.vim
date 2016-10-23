@@ -80,7 +80,7 @@ endfunction
 function! excelview#view(...) abort
   if a:0 > 2
     echohl Error | echon "Usage: :ExcelView [filename] {[sheet-number]}" | echohl None
-	return
+    return
   endif
   let [f, s] = a:0 == 1 ? [a:1, 1] : [a:1, a:2]
   try
@@ -88,7 +88,7 @@ function! excelview#view(...) abort
   catch
     let e = v:exception
     echohl Error | echon printf("Error while loading sheet%d: %s", s, e) | echohl None
-	return
+    return
   endtry
   new
   setlocal noswapfile buftype=nofile bufhidden=delete nowrap norightleft modifiable nolist nonumber
