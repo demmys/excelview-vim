@@ -30,11 +30,10 @@ function! s:loadSheetData(f, s)
       let r = col.attr["r"]
       let nv = col.childNode("v")
       let v = empty(nv) ? "" : nv.value()
-      if has_key(col.attr, "s") && col.attr["s"] == "2"
-        let v = strftime("%Y/%m/%d %H:%M:%S", (v - 25569) * 86400 - 32400)
-      endif
       if has_key(col.attr, "t") && col.attr["t"] == "s"
         let v = ss[v]
+      elseif has_key(col.attr, "s") && col.attr["s"] == "2"
+        let v = strftime("%Y/%m/%d %H:%M:%S", (v - 25569) * 86400 - 32400)
       endif
       let x = char2nr(r[0]) - aa
       let y = matchstr(r, '\d\+')
