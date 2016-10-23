@@ -1,22 +1,48 @@
+function! s:loadXml(f, t)
+  let xml = system(printf("unzip -p -- %s %s", shellescape(a:f), shellescape(a:t)))
+  return webapi#xml#parse(xml)
+endfunction
+
+function! s:loadWorkbook(f)
+  let relNames = {}
+  let doc = s:loadXml(a:f, "xl/workbook.xml")
+  let sheets = doc.childNode("sheets")
+  for sheet in sheets.childNodes("sheet")
+    let relNames[sheet.attr["r:id"]] = sheet.attr["name"]
+  endfor
+  return relNames
+endfunction
+
+function! s:loadRels(f)
+  let sheetRels = {}
+  let doc = s:loadXml(a:f, "xl/_rels/workbook.xml.rels")
+  for rel in doc.childNodes("Relationship")
+    let ms = matchlist(rel.attr["Target"], '\vworksheets/sheet(\d+).xml')
+    if empty(ms)
+      continue
+    endif
+    let sheetRels[ms[1]] = rel.attr["Id"]
+  endfor
+  return sheetRels
+endfunction
+
 function! s:loadSheetNames(f)
-  let names = []
+  let sheetNames = {}
   try
-    let xml = system(printf("unzip -p -- %s xl/workbook.xml", shellescape(a:f)))
-    let doc = webapi#xml#parse(xml)
-    let sheets = doc.childNode("sheets")
-    for sheet in sheets.childNodes("sheet")
-      call add(names, sheet.attr["name"])
+    let relNames = s:loadWorkbook(a:f)
+    let sheetRels = s:loadRels(a:f)
+    for [sheet, rel] in items(sheetRels)
+      let sheetNames[sheet] = relNames[rel]
     endfor
   catch
   endtry
-  return names
+  return sheetNames
 endfunction
 
 function! s:loadSharedStrings(f)
   let ss = []
   try
-    let xml = system(printf("unzip -p -- %s xl/sharedStrings.xml", shellescape(a:f)))
-    let doc = webapi#xml#parse(xml)
+    let doc = s:loadXml(a:f, "xl/sharedStrings.xml")
     for si in doc.childNodes("si")
       let t = si.childNode("t")
       if !empty(t)
@@ -32,10 +58,8 @@ function! s:loadSharedStrings(f)
 endfunction
 
 function! s:loadSheetData(f, s)
-  let xml = system(printf("unzip -p -- %s xl/worksheets/sheet%d.xml", shellescape(a:f), a:s))
-
   let ss = s:loadSharedStrings(a:f)
-  let doc = webapi#xml#parse(xml)
+  let doc = s:loadXml(a:f, "xl/worksheets/sheet" . a:s . ".xml")
   let rows = doc.childNode("sheetData").childNodes("row")
   let cells = map(range(1, 256), 'map(range(1,256), "''''")')
   let aa = char2nr('A')
@@ -120,13 +144,13 @@ function! excelview#view(...) abort
     return
   endif
   let f = a:1
-  let names = s:loadSheetNames(f)
+  let sheetNames = s:loadSheetNames(f)
   if a:0 == 1
-    for i in range(0, len(names) - 1)
-      call s:renderSheet(f, i + 1, names[i])
+    for s in range(1, len(sheetNames))
+      call s:renderSheet(f, s, sheetNames[s])
     endfor
   else
     let s = a:2
-    call s:renderSheet(f, s, names[str2nr(s) - 1])
+    call s:renderSheet(f, s, sheetNames[s])
   endif
 endfunction
