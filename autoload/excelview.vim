@@ -1,3 +1,17 @@
+function! s:loadSheetNames(f)
+  let names = []
+  try
+    let xml = system(printf("unzip -p -- %s xl/workbook.xml", shellescape(a:f)))
+    let doc = webapi#xml#parse(xml)
+    let sheets = doc.childNode("sheets")
+    for sheet in sheets.childNodes("sheet")
+      call add(names, sheet.attr["name"])
+    endfor
+  catch
+  endtry
+  return names
+endfunction
+
 function! s:loadSharedStrings(f)
   let ss = []
   try
@@ -77,20 +91,15 @@ function! s:fillColumns(rows)
   return rows
 endfunction
 
-function! excelview#view(...) abort
-  if a:0 > 2
-    echohl Error | echon "Usage: :ExcelView [filename] {[sheet-number]}" | echohl None
-    return
-  endif
-  let [f, s] = a:0 == 1 ? [a:1, 1] : [a:1, a:2]
+function! s:renderSheet(f, s, sname)
   try
-    let data = s:loadSheetData(f, s)
+    let data = s:loadSheetData(a:f, a:s)
   catch
     let e = v:exception
-    echohl Error | echon printf("Error while loading sheet%d: %s", s, e) | echohl None
+    echohl Error | echon printf("Error while loading sheet%d: %s", a:s, e) | echohl None
     return
   endtry
-  new
+  silent! execute 'tabnew' a:sname
   setlocal noswapfile buftype=nofile bufhidden=delete nowrap norightleft modifiable nolist nonumber
   let data = s:fillColumns(data) 
   let sep = "+" . join(map(copy(data[0]), 'repeat("-", len(v:val))'), '+') . "+"
@@ -103,4 +112,21 @@ function! excelview#view(...) abort
     let r += 2
   endfor
   setlocal nomodifiable
+endfunction
+
+function! excelview#view(...) abort
+  if a:0 > 2
+    echohl Error | echon "Usage: :ExcelView [filename] {[sheet-number]}" | echohl None
+    return
+  endif
+  let f = a:1
+  let names = s:loadSheetNames(f)
+  if a:0 == 1
+    for i in range(0, len(names) - 1)
+      call s:renderSheet(f, i + 1, names[i])
+    endfor
+  else
+    let s = a:2
+    call s:renderSheet(f, s, names[str2nr(s) - 1])
+  endif
 endfunction
