@@ -5,7 +5,12 @@ function! s:loadSharedStrings(f)
     let doc = webapi#xml#parse(xml)
     for si in doc.childNodes("si")
       let t = si.childNode("t")
-      call add(ss, t.value())
+      if !empty(t)
+        call add(ss, t.value())
+      else
+        let ts = si.findAll("t")
+        call add(ss, join(map(ts, "v:val.value()"), ""))
+      endif
     endfor
   catch
   endtry
